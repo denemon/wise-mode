@@ -1,11 +1,13 @@
 # wise-mode
 
-A collection of [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills and hooks for disciplined development — **wise** for architect-mode quality gates, **wise-cont** for persistent architect mode, and **cclog** for automatic session logging.
+A collection of [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills and hooks for disciplined development — **caveman** for brevity, **swarm** for parallel delegation plans, **wise** for architect-mode quality gates, **wise-cont** for persistent architect mode, and **cclog** for automatic session logging.
 
 ## Components
 
 | Name | Type | Description |
 |------|------|-------------|
+| **caveman** | Skill (`/caveman`) | Brevity mode — fewer words, same technical substance, with lite/full/ultra intensity levels |
+| **swarm** | Skill (`/swarm`) | Low-token subagent orchestration — creates scoped agent briefs plus runnable swarm files |
 | **wise** | Skill (`/wise`) | Architect mode — systematic planning, TDD, adversarial self-review, and quality gates (single task) |
 | **wise-cont** | Skill (`/wise-cont`) | Continuous architect mode — activate once, applies to all subsequent messages in the session |
 | **cclog** | Hook | Auto-records all Claude Code sessions to `.claude/log/` — zero token consumption |
@@ -23,6 +25,16 @@ This installs skills into `.claude/skills/`, the cclog hook into `.claude/hooks/
 ### Manual install
 
 ```bash
+# caveman
+mkdir -p .claude/skills/caveman
+cd .claude/skills/caveman
+curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/caveman/SKILL.md
+
+# swarm
+mkdir -p .claude/skills/swarm
+cd .claude/skills/swarm
+curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/swarm/SKILL.md
+
 # wise
 mkdir -p .claude/skills/wise
 cd .claude/skills/wise
@@ -73,6 +85,39 @@ For cclog, add the following to `.claude/settings.local.json`:
   }
 }
 ```
+
+## caveman — Brevity Mode
+
+When you type `/caveman`, the agent switches into a brevity-first response style:
+
+- **Same technical substance** — removes filler, keeps exact terms, commands, and errors
+- **3 intensity levels** — `lite`, `full`, and `ultra`
+- **Auto-clarity** — temporarily returns to normal wording for destructive actions and safety warnings
+- **Language-preserving** — stays in the user's language unless asked to translate
+
+```text
+/caveman
+/caveman lite
+/caveman ultra
+```
+
+Use it when you want faster, tighter answers without losing the actual fix or reasoning.
+
+## swarm — Parallel Delegation Mode
+
+When you type `/swarm`, the agent builds a compact parallel-work plan for tasks you explicitly want delegated:
+
+- **Low-token discovery** — reads only the files needed to set agent boundaries
+- **Conflict-safe ownership** — each agent gets an explicit write scope
+- **Runnable output** — generates human-readable `.swarm/plan.md` and executable `.swarm/run.sh`
+- **Smallest useful swarm** — avoids over-fragmenting simple work
+
+```text
+/swarm build agents for this feature
+/swarm break this task into parallel workers
+```
+
+Use it when you want subagents or parallel execution, not for ordinary single-agent coding.
 
 ## wise — Architect Mode
 

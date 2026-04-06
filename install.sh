@@ -15,6 +15,8 @@ main() {
 
     # Skills to install: "name|file1,file2,..."
     SKILLS=(
+        "caveman|SKILL.md"
+        "swarm|SKILL.md"
         "wise|SKILL.md,CHECKLISTS.md,PATTERNS.md"
         "wise-cont|SKILL.md"
     )

@@ -1,237 +1,158 @@
 ---
 name: swarm
-
 description: >
-  Decompose a complex task into parallel subagents, create all agent files,
-  and deliver a ready-to-execute orchestration plan with wave structure.
-
-  Invoke when: "create agents for this", "spin up a swarm", "parallel agents",
-  "swarm this", "break this into subagents", "orchestrate agents for",
-  "what agents do I need", "build a swarm",
-  "I need agents for this", "decompose this task".
-
-argument-hint: <endstate or full task description>
-
-allowed-tools: Read, Write, Edit, Grep, Glob, Bash
-
+  Create a low-token subagent swarm for work the user explicitly wants delegated or parallelized.
+  Generate scoped agent briefs plus `.swarm/plan.md` and `.swarm/run.sh`.
+  Use when the user asks to create agents, spin up a swarm, parallelize work,
+  delegate tasks, break work into subagents, or orchestrate parallel execution.
 ---
 
-## Mission
+# Swarm Mode
 
-Analyze a requested endstate, decompose it into independent parallel workstreams,
-design a purpose-built subagent for each, create all agent files, and deliver a
-ready-to-execute orchestration plan with wave structure and exact invocation commands.
+Build a runnable swarm with minimal context and no overlapping ownership.
 
-Bias toward action: create files first, explain after.
+Only use this mode when the user explicitly asks for delegation, subagents, or parallel work.
 
----
+## Output Contract
 
-## Phase 1: Context Capture
+Always create:
 
-Read all available project context before designing anything:
+- `.swarm/agents/<agent-name>.md`
+- `.swarm/plan.md` for humans
+- `.swarm/run.sh` for execution
 
-- Scan repository structure (Glob up to 2 levels)
-- Read key files: README, package.json / pyproject.toml / build.gradle, main entrypoints, CI configs
-- Detect language(s), runtime(s), frameworks, and existing conventions
-- Note coding standards and patterns already in use — subagents must conform to them
+Keep all three short. Do not duplicate long explanations across files.
 
-If context is insufficient to design agents safely, state assumptions explicitly and proceed.
+## 1. Scoped Discovery
 
----
+Token saving is mandatory.
 
-## Phase 2: Task Decomposition
+- Read only files that affect agent boundaries
+- Start with at most 5 files: one project overview, one manifest, and up to 3 likely task files
+- Prefer `rg`/directory listing over opening many files
+- Expand only when blocked or when ownership is still unclear
+- If the task is already well-scoped, skip broad discovery and state assumptions
 
-Transform the requested endstate into parallelizable workstreams:
+Do not read "all available project context".
 
-Rules:
-- Each subagent owns exactly one concern — no shared ownership
-- Prefer 3–6 agents; resist over-fragmentation
-- Separate concerns: implementation / validation / integration / documentation
-- Identify dependencies and assign each agent a wave number
+## 2. Decompose For Parallelism
 
-Output a task graph:
+Prefer the smallest swarm that still helps:
 
-```
-Wave 1 (parallel): [agent-a, agent-b, agent-c]
-Wave 2 (parallel, after Wave 1): [agent-d, agent-e]
-Wave 3 (after Wave 2): [integrator]
-```
+- small task: 1-2 workers + integrator
+- medium task: 2-4 workers + integrator
+- large task: 4-6 workers + integrator
 
----
+Do not create documentation, review, or cleanup agents unless they materially help the end state.
 
-## Phase 3: Agent Design
+Each agent must have:
 
-For each agent, define the following before generating any files:
+- one concern
+- one write scope
+- clear inputs and outputs
+- a wave number
+- a blocking condition if it depends on prior work
 
-| Field | Description |
-|---|---|
-| `name` | Kebab-case identifier (e.g., `auth-module-builder`) |
-| `role` | One-sentence responsibility |
-| `wave` | Execution wave number |
-| `inputs` | Files or artifacts it reads |
-| `outputs` | Concrete artifacts it produces (with paths) |
-| `constraints` | Files and areas it must NOT touch |
-| `success_criteria` | Observable, verifiable completion signals |
+## 3. Ownership Rules
 
-Always include one final **integrator agent** in the last wave:
-- Merges outputs from all prior agents
-- Resolves conflicts and inconsistencies
-- Runs build / test / validation
-- Confirms the endstate is achieved
+Parallel safety matters more than symmetry.
 
----
+- No two agents may own the same writable file
+- Prefer directory-level ownership when possible
+- Every agent brief must say `May edit:` and `Must not edit:`
+- Tell each agent it is not alone in the codebase and must not revert others' changes
+- If ownership is fuzzy, reduce agent count until it is not
 
-## Phase 4: File Generation
+Always include one final integrator agent that:
 
-Create all agent files at `.swarm/agents/<agent-name>.md` using this exact template:
+- reads outputs from earlier waves
+- resolves interface mismatches
+- runs validation
+- confirms the requested end state
+
+## 4. Agent File Template
+
+Create `.swarm/agents/<agent-name>.md` with this structure:
 
 ```markdown
 # Agent: <name>
 
 ## Role
-<One-sentence responsibility>
+<one sentence>
 
 ## Wave
-<Wave number and dependency> (e.g., "Wave 2 — runs after agent-a and agent-b complete")
+<wave number and dependencies>
 
 ## Inputs
-- <file or artifact path>
+- <files, folders, artifacts>
+
+## Write Scope
+- May edit: <exact files or directories>
+- Must not edit: <everything else that could conflict>
 
 ## Outputs
-- <path/to/output> — <what it contains>
+- <artifact path> — <result>
 
 ## Constraints
-- Do NOT modify: <files or areas out of scope>
-- Do NOT proceed if: <blocking condition>
+- You are not alone in the codebase. Do not revert others' edits.
+- Stop and report if required inputs are missing.
 
 ## Task
-<Detailed step-by-step instructions for this agent>
+<short numbered steps>
 
 ## Success Criteria
-- [ ] <verifiable criterion>
-- [ ] <verifiable criterion>
+- [ ] <verifiable outcome>
+- [ ] <verifiable outcome>
 ```
 
-Also generate `.swarm/plan.md` containing the full orchestration plan (wave structure,
-dependency graph, and CLI commands). See Phase 5–6 for contents.
+## 5. plan.md
 
-After creating all files, verify:
+`.swarm/plan.md` is a brief summary, not a shell script.
+
+Include only:
+
+- goal
+- assumptions
+- wave list
+- one-line dependency notes
+- agent table: name, role, wave, write scope
+- how to run: `bash .swarm/run.sh`
+
+Do not paste the full runner commands into `plan.md`.
+
+## 6. run.sh
+
+`.swarm/run.sh` is the executable runner.
+
+Requirements:
+
+- shebang + `set -euo pipefail`
+- run waves sequentially, agents within a wave in parallel
+- use `wait` after each wave
+- invoke `claude -p "$(cat ...)"` unless the project clearly uses another runner
+- end with the integrator
+- `chmod +x .swarm/run.sh`
+
+Minimal shape:
 
 ```bash
-ls -la .swarm/agents/
-cat .swarm/plan.md
-```
+#!/usr/bin/env bash
+set -euo pipefail
 
----
-
-## Phase 5: Orchestration Plan
-
-Write `.swarm/plan.md` with the following structure:
-
-### Wave Structure
-
-Group agents by wave. Within each wave, all agents run in parallel.
-
-```
-Wave 1 — Independent (no dependencies)
-  Agents: agent-a, agent-b, agent-c
-
-Wave 2 — Depends on Wave 1 outputs
-  Agents: agent-d, agent-e
-
-Wave 3 — Integration
-  Agents: integrator
-```
-
-### Dependency Notes
-
-List artifact handoffs between waves:
-- "agent-d reads `src/api/` produced by agent-a"
-- "integrator reads all outputs from Wave 1 and Wave 2"
-
----
-
-## Phase 6: Invocation Commands
-
-Provide exact, copy-pasteable CLI commands.
-
-**Single agent:**
-```bash
-claude -p "$(cat .swarm/agents/agent-a.md)"
-```
-
-**Wave execution (parallel within wave, sequential between waves):**
-```bash
-# Wave 1 — run in parallel
 claude -p "$(cat .swarm/agents/agent-a.md)" &
 claude -p "$(cat .swarm/agents/agent-b.md)" &
-claude -p "$(cat .swarm/agents/agent-c.md)" &
 wait
 
-# Wave 2 — run after Wave 1 completes
-claude -p "$(cat .swarm/agents/agent-d.md)" &
-claude -p "$(cat .swarm/agents/agent-e.md)" &
-wait
-
-# Wave 3 — integration
 claude -p "$(cat .swarm/agents/integrator.md)"
 ```
 
----
+## 7. Verification
 
-## Phase 7: Handoff Summary
+Before finishing:
 
-End with a concise summary printed to the user:
+- verify `command -v claude` if you emitted `claude` commands
+- verify agent files exist
+- verify `.swarm/run.sh` exists and is executable
+- print a concise handoff with wave count and file paths
 
-```
-Swarm created: N agents across M waves
-
-  .swarm/agents/
-  ├── agent-a.md     [Wave 1] — <role>
-  ├── agent-b.md     [Wave 1] — <role>
-  ├── agent-d.md     [Wave 2] — <role>
-  └── integrator.md  [Wave 3] — merge, validate, confirm endstate
-
-Full plan: .swarm/plan.md
-
-Start execution:
-  bash .swarm/plan.md  (or copy commands from Phase 6 above)
-
-Completion criteria:
-  All agent files generated ✓
-  Wave plan is runnable    ✓
-  Integrator confirms endstate after final wave ✓
-```
-
----
-
-## Design Principles
-
-- Maximize parallelism without breaking correctness
-- Minimize cross-agent communication — agents should not need to talk to each other mid-execution
-- Prefer deterministic outputs: concrete file paths, not vague descriptions
-- Treat each agent like a junior engineer with a narrow, well-specified task
-- The integrator agent is not optional — every swarm needs a single point of truth verification
-
----
-
-## Anti-Patterns (avoid)
-
-- Agents with vague responsibilities ("handle the backend")
-- Multiple agents writing to the same file simultaneously
-- Hidden dependencies between Wave 1 agents
-- Overly sequential plans where parallelism was possible
-- Invocation commands that haven't been verified to exist
-- Skipping the integrator because "it seems obvious"
-
----
-
-## Output Requirements
-
-Every swarm must produce:
-
-1. Agent list with roles and wave assignments
-2. Dependency graph (which agent feeds which)
-3. Wave execution plan
-4. All `.swarm/agents/*.md` files created on disk
-5. `.swarm/plan.md` with copy-pasteable CLI commands
+If the runner command is unavailable, say so clearly and still generate the files.
