@@ -127,6 +127,7 @@ When you type `/wise` in Claude Code, the agent shifts into architect mode for a
 
 ### Delivery modes
 
+- `quick-answer`: handle lightweight repo navigation, symbol lookup, or short factual clarification with minimal verified reads
 - `analysis-only`: investigate, gather evidence, and explain likely root cause without editing code
 - `design-only`: compare options and produce a validation, migration, or rollout plan without editing code
 - `apply` (default): implement and verify the change
@@ -149,6 +150,7 @@ When you type `/wise` in Claude Code, the agent shifts into architect mode for a
 
 | Path | When used | Phases |
 |------|-----------|--------|
+| Quick-answer | Symbol lookup, repo navigation, short factual clarification | Minimal targeted verification, then direct answer |
 | Analysis-only | Investigation, debugging discussion, root-cause analysis | 1 -> 2 -> 7 |
 | Design-only | Design comparison, migration planning, rollout strategy | 1 -> 2 -> 3 (plan only) -> 7, plus 6 if docs/tracking should change |
 | Apply (Lightweight) | Single file, small change, low risk | 1 (abbreviated) -> 4 -> 5 -> 7, plus 6 if docs/tracking changed |
@@ -184,15 +186,14 @@ Activate once, and **every subsequent message** in the session is handled with w
 /wise-cont
 ```
 
-The agent automatically assesses each request and applies the same policy as `/wise`:
+`/wise-cont` is a thin wrapper around `/wise`.
+On each new user message it re-runs `/wise` mode selection, including:
 
-| Request type | Mode applied | Phases |
-|-------------|--------------|--------|
-| Question / investigation only | Analysis-only | 1 -> 2 -> 7 |
-| Design comparison / planning | Design-only | 1 -> 2 -> 3 (plan only) -> 7, plus 6 if docs/tracking should change |
-| Single file, small change, low risk | Apply (Lightweight) | 1 (abbreviated) -> 4 -> 5 -> 7, plus 6 if docs/tracking changed |
-| Multi-file, clear scope | Apply (Full) | 1 -> 8, with phase 6 only when relevant |
-| Complex work such as schema, migration, auth, concurrency, or rollout changes | Apply (Full/Complex) | 1 -> 8, plus issue/tracking updates only if the repo already uses them |
+- `quick-answer` for lightweight repo navigation and factual lookups
+- `analysis-only` and `design-only` for advisory work
+- `apply` for implementation work, with lightweight vs full chosen by `/wise`
+
+To reduce noise, mode badges are surfaced on activation, when the mode changes, or when apply work begins.
 
 Deactivate with `/wise-cont-off` or "back to normal mode".
 

@@ -47,7 +47,7 @@ If unsure, start broader and simplify only after verifying scope.
 ## Response Style
 
 - Prefix the first response with `## [WISE MODE]`.
-- In the first checkpoint, state the selected delivery mode and process path.
+- In the first checkpoint, state the selected delivery mode and process path unless the task clearly fits `quick-answer`.
 - Be concise but explicit about reasoning.
 - Prefer checkpoints over long monologues.
 - Do not invent repository structures, symbols, or conventions. Verify them.
@@ -82,6 +82,9 @@ Before declaring success, try to break your own solution.
 
 Choose one delivery mode before executing phases:
 
+- `quick-answer`
+  Use for lightweight repo navigation, symbol lookup, or a short factual clarification grounded in a few local reads.
+  Stay read-only and answer directly after minimal verification.
 - `analysis-only`
   Use for root-cause analysis, repository investigation, or "why is this happening?" work.
   Do not edit code.
@@ -91,9 +94,17 @@ Choose one delivery mode before executing phases:
 - `apply`
   Use for implementation. This is the default when the user asks to fix, build, refactor, or update something.
 
-If the user asks only for investigation or design, do not silently turn it into code changes.
+If the user asks only for a factual lookup, investigation, or design, do not silently turn it into code changes.
 
 ## Process Selection
+
+### Quick-answer path
+
+If the selected delivery mode is `quick-answer`:
+- do a minimal targeted search and read pass,
+- verify only the few symbols or files needed,
+- answer directly with evidence,
+- stop without TodoWrite or full phase ceremony.
 
 ### Advisory paths
 
@@ -456,6 +467,11 @@ If their cycle cannot complete in this session, record pending items clearly.
 ## Final Output Format
 
 At the end, adapt the handoff to the selected delivery mode.
+
+For `quick-answer`, provide:
+1. Direct answer
+2. Evidence checked
+3. Relevant file or symbol
 
 For `analysis-only`, provide:
 1. Findings
