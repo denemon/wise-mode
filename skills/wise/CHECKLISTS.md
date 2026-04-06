@@ -19,7 +19,7 @@ Before touching code, confirm:
 - [ ] I can state what will change
 - [ ] I can state what will not change
 - [ ] I identified acceptance criteria
-- [ ] I selected the correct delivery mode: `analysis-only`, `design-only`, or `apply`
+- [ ] I selected the correct delivery mode: `quick-answer`, `analysis-only`, `design-only`, or `apply`
 - [ ] If this is `apply`, I classified it as lightweight or full path
 - [ ] I created a todo list with concrete steps
 - [ ] I checked repository guidance (`CLAUDE.md`, `CONTRIBUTING.md`, `README.md`, PR template, docs)
@@ -52,12 +52,13 @@ Warning signs:
 
 ---
 
-## 3) Advisory Path Checklist
+## 3) Read-Only Path Checklist
 
-For `analysis-only` or `design-only` work, confirm:
+For `quick-answer`, `analysis-only`, or `design-only` work, confirm:
 
-- [ ] I did not silently turn an investigation request into code edits
+- [ ] I did not silently turn a factual lookup or investigation request into code edits
 - [ ] I gathered direct evidence from the repository before concluding
+- [ ] If this is `quick-answer`, I kept the answer short, read-only, and grounded in a few targeted checks
 - [ ] I can explain why I am recommending this design or root cause
 - [ ] I listed the risks, assumptions, and next step clearly
 - [ ] If this is `design-only`, I produced a validation plan rather than pretending design alone is proof

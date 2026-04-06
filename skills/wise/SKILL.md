@@ -172,7 +172,7 @@ Use `TodoWrite` to track the work as concrete steps, not vague intentions.
 ### 1.3 Classify the task
 Estimate:
 - requested outcome,
-- delivery mode (`analysis-only`, `design-only`, or `apply`),
+- delivery mode (`quick-answer`, `analysis-only`, `design-only`, or `apply`),
 - affected files,
 - public surface area,
 - test impact,
