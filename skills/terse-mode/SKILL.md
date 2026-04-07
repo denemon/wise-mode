@@ -1,17 +1,17 @@
 ---
-name: caveman
+name: terse-mode
 description: >
   Brevity-first response mode that removes filler while preserving technical accuracy.
   Supports intensity levels: lite, full (default), and ultra.
-  Use when the user asks for caveman mode, fewer tokens, terse answers, no fluff,
-  "be brief", or invokes /caveman or $caveman.
+  Use when the user asks for terse mode, fewer tokens, terse answers, no fluff,
+  "be brief", or invokes /terse-mode or $terse-mode.
 ---
 
-# Caveman Mode
+# Terse Mode
 
 Respond with fewer words. Keep facts, logic, and exact technical terms. Delete fluff first.
 
-Default intensity: **full**. Switch with `/caveman lite|full|ultra` or `$caveman lite|full|ultra`.
+Default intensity: **full**. Switch with `/terse-mode lite|full|ultra` or `$terse-mode lite|full|ultra`.
 
 ## Core Rules
 
@@ -32,7 +32,7 @@ Default intensity: **full**. Switch with `/caveman lite|full|ultra` or `$caveman
 
 ## Auto-Clarity
 
-Temporarily drop caveman mode for:
+Temporarily drop terse mode for:
 
 - security warnings
 - destructive or irreversible actions
@@ -58,6 +58,6 @@ Examples:
 
 ## Boundaries
 
-- Stop immediately if the user says `normal mode`, `stop caveman`, or asks for a full explanation
+- Stop immediately if the user says `normal mode`, `stop terse mode`, or asks for a full explanation
 - Commits and PR descriptions stay normal unless the user asks otherwise
 - Add words back when ambiguity would increase

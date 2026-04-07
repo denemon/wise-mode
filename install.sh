@@ -15,7 +15,7 @@ main() {
 
     # Skills to install: "name|file1,file2,..."
     SKILLS=(
-        "caveman|SKILL.md"
+        "terse-mode|SKILL.md"
         "swarm|SKILL.md"
         "wise|SKILL.md,CHECKLISTS.md,PATTERNS.md"
         "wise-cont|SKILL.md"
@@ -142,7 +142,7 @@ main() {
         mkdir -p "${TMPDIR_DOWNLOAD}/skills/${skill_name}"
 
         for file in "${skill_files[@]}"; do
-            url="${REPO_RAW_BASE}/.claude/skills/${skill_name}/${file}"
+            url="${REPO_RAW_BASE}/skills/${skill_name}/${file}"
             dest="${TMPDIR_DOWNLOAD}/skills/${skill_name}/${file}"
             if fetch "${url}" > "${dest}" 2>/dev/null; then
                 if [ ! -s "${dest}" ]; then
@@ -168,7 +168,7 @@ main() {
     info "Downloading hook files..."
     mkdir -p "${TMPDIR_DOWNLOAD}/hooks"
     for hook_file in "${HOOK_FILES[@]}"; do
-        url="${REPO_RAW_BASE}/.claude/hooks/${hook_file}"
+        url="${REPO_RAW_BASE}/hooks/${hook_file}"
         dest="${TMPDIR_DOWNLOAD}/hooks/${hook_file}"
         if fetch "${url}" > "${dest}" 2>/dev/null; then
             if [ ! -s "${dest}" ]; then
