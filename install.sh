@@ -15,7 +15,7 @@ main() {
 
     # Skills to install: "name|file1,file2,..."
     SKILLS=(
-        "caveman|SKILL.md"
+        "terse-mode|SKILL.md"
         "swarm|SKILL.md"
         "wise|SKILL.md,CHECKLISTS.md,PATTERNS.md"
         "wise-cont|SKILL.md"
@@ -143,7 +143,7 @@ main() {
         mkdir -p "${TMPDIR_DOWNLOAD}/skills/${skill_name}"
 
         for file in "${skill_files[@]}"; do
-            url="${REPO_RAW_BASE}/.claude/skills/${skill_name}/${file}"
+            url="${REPO_RAW_BASE}/skills/${skill_name}/${file}"
             dest="${TMPDIR_DOWNLOAD}/skills/${skill_name}/${file}"
             if fetch "${url}" > "${dest}" 2>/dev/null; then
                 if [ ! -s "${dest}" ]; then
@@ -169,7 +169,7 @@ main() {
     info "Downloading hook files..."
     mkdir -p "${TMPDIR_DOWNLOAD}/hooks"
     for hook_file in "${HOOK_FILES[@]}"; do
-        url="${REPO_RAW_BASE}/.claude/hooks/${hook_file}"
+        url="${REPO_RAW_BASE}/hooks/${hook_file}"
         dest="${TMPDIR_DOWNLOAD}/hooks/${hook_file}"
         if fetch "${url}" > "${dest}" 2>/dev/null; then
             if [ ! -s "${dest}" ]; then
@@ -251,7 +251,13 @@ with open(settings_path, 'w') as f:
 
     ok "Hooks configuration merged into .claude/settings.local.json"
 
-    # ── Remove legacy cclog skill if present ──────────────────────
+    # Remove legacy skills if present
+    LEGACY_CAVEMAN="${PROJECT_ROOT}/.claude/skills/caveman"
+    if [ -d "${LEGACY_CAVEMAN}" ]; then
+        rm -rf "${LEGACY_CAVEMAN}"
+        info "Removed legacy caveman skill (replaced by terse-mode)"
+    fi
+
     LEGACY_CCLOG="${PROJECT_ROOT}/.claude/skills/cclog"
     if [ -d "${LEGACY_CCLOG}" ]; then
         rm -rf "${LEGACY_CCLOG}"
@@ -268,9 +274,11 @@ with open(settings_path, 'w') as f:
     done
     echo ""
     info "Usage:"
-    echo "    /wise      — Architect mode for a single task"
-    echo "    /wise-cont — Architect mode for the entire session"
-    echo "    cclog      — Auto-records sessions via hooks (no commands needed)"
+    echo "    /terse-mode - Brevity mode with lite/full/ultra intensity"
+    echo "    /swarm      - Parallel delegation planning"
+    echo "    /wise       - Architect mode for a single task"
+    echo "    /wise-cont  - Architect mode for the entire session"
+    echo "    cclog       - Auto-records sessions via hooks (no commands needed)"
     echo ""
     info "Session logs are saved to .claude/log/ automatically."
     echo ""

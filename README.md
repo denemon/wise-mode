@@ -1,12 +1,12 @@
 # wise-mode
 
-A collection of [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills and hooks for disciplined development — **caveman** for brevity, **swarm** for parallel delegation plans, **wise** for architect-mode quality gates, **wise-cont** for persistent architect mode, and **cclog** for automatic session logging.
+A collection of [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills and hooks for disciplined development — **terse-mode** for brevity, **swarm** for parallel delegation plans, **wise** for architect-mode quality gates, **wise-cont** for persistent architect mode, and **cclog** for automatic session logging.
 
 ## Components
 
 | Name | Type | Description |
 |------|------|-------------|
-| **caveman** | Skill (`/caveman`) | Brevity mode — fewer words, same technical substance, with lite/full/ultra intensity levels |
+| **terse-mode** | Skill (`/terse-mode`) | Brevity mode — fewer words, same technical substance, with lite/full/ultra intensity levels |
 | **swarm** | Skill (`/swarm`) | Low-token subagent orchestration — creates scoped agent briefs plus runnable swarm files |
 | **wise** | Skill (`/wise`) | Architect mode — systematic planning, TDD, adversarial self-review, and quality gates (single task) |
 | **wise-cont** | Skill (`/wise-cont`) | Continuous architect mode — activate once, applies to all subsequent messages in the session |
@@ -26,34 +26,41 @@ This installs skills into `.claude/skills/`, the cclog hook into `.claude/hooks/
 ### Manual install
 
 ```bash
-# caveman
-mkdir -p .claude/skills/caveman
-cd .claude/skills/caveman
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/caveman/SKILL.md
+# terse-mode
+mkdir -p .claude/skills/terse-mode
+curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/terse-mode/SKILL.md \
+  -o .claude/skills/terse-mode/SKILL.md
 
 # swarm
 mkdir -p .claude/skills/swarm
-cd .claude/skills/swarm
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/swarm/SKILL.md
+curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/swarm/SKILL.md \
+  -o .claude/skills/swarm/SKILL.md
 
 # wise
 mkdir -p .claude/skills/wise
-cd .claude/skills/wise
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/wise/SKILL.md
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/wise/CHECKLISTS.md
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/wise/PATTERNS.md
+curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/wise/SKILL.md \
+  -o .claude/skills/wise/SKILL.md
+curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/wise/CHECKLISTS.md \
+  -o .claude/skills/wise/CHECKLISTS.md
+curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/wise/PATTERNS.md \
+  -o .claude/skills/wise/PATTERNS.md
 
 # wise-cont
 mkdir -p .claude/skills/wise-cont
-cd .claude/skills/wise-cont
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/wise-cont/SKILL.md
+curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/wise-cont/SKILL.md \
+  -o .claude/skills/wise-cont/SKILL.md
 
-# cclog (hook)
+# hooks
 mkdir -p .claude/hooks
-cd .claude/hooks
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/hooks/cclog-hook.sh
-chmod +x cclog-hook.sh
+curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/hooks/cclog-hook.sh \
+  -o .claude/hooks/cclog-hook.sh
+curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/hooks/sync_to_obsidian.py \
+  -o .claude/hooks/sync_to_obsidian.py
+chmod +x .claude/hooks/cclog-hook.sh
+
 ```
+
+If you installed an older version of the brevity skill manually, remove that old skill directory before using `terse-mode`.
 
 For cclog, add the following to `.claude/settings.local.json`:
 
@@ -87,9 +94,9 @@ For cclog, add the following to `.claude/settings.local.json`:
 }
 ```
 
-## caveman — Brevity Mode
+## terse-mode — Brevity Mode
 
-When you type `/caveman`, the agent switches into a brevity-first response style:
+When you type `/terse-mode`, the agent switches into a brevity-first response style:
 
 - **Same technical substance** — removes filler, keeps exact terms, commands, and errors
 - **3 intensity levels** — `lite`, `full`, and `ultra`
@@ -97,9 +104,9 @@ When you type `/caveman`, the agent switches into a brevity-first response style
 - **Language-preserving** — stays in the user's language unless asked to translate
 
 ```text
-/caveman
-/caveman lite
-/caveman ultra
+/terse-mode
+/terse-mode lite
+/terse-mode ultra
 ```
 
 Use it when you want faster, tighter answers without losing the actual fix or reasoning.
@@ -276,12 +283,16 @@ rm -rf .claude/log/*
 
 ```bash
 # All components
-rm -rf .claude/skills/wise .claude/skills/wise-cont .claude/hooks/cclog-hook.sh
+rm -rf .claude/skills/terse-mode .claude/skills/swarm .claude/skills/wise .claude/skills/wise-cont
+rm -f .claude/hooks/cclog-hook.sh .claude/hooks/sync_to_obsidian.py
 
 # Individual
+rm -rf .claude/skills/terse-mode
+rm -rf .claude/skills/swarm
 rm -rf .claude/skills/wise
 rm -rf .claude/skills/wise-cont
-rm .claude/hooks/cclog-hook.sh
+rm -f .claude/hooks/cclog-hook.sh
+rm -f .claude/hooks/sync_to_obsidian.py
 ```
 
 After removing cclog, also remove the `hooks` section from `.claude/settings.local.json`.
