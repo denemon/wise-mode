@@ -1,28 +1,17 @@
 # wise-mode
 
-A collection of [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills and hooks for disciplined development: **terse-mode** for brevity, **swarm** for parallel delegation plans, **wise** for architect-mode quality gates, **wise-cont** for persistent architect mode, and **cclog** for automatic session logging.
-
-## Why wise-mode?
-
-Most AI coding failures are not syntax failures. They come from acting before the agent has mapped the system, verified assumptions, or chosen a safe validation path.
-
-wise-mode adds repo-local workflows that make Claude Code more disciplined without turning every task into ceremony:
-
-- **Raise the quality floor:** `/wise` makes the agent investigate first, choose the smallest safe design, validate with tests or evidence, and review its own work adversarially before handoff.
-- **Scale process to risk:** quick lookups stay lightweight, while higher-risk changes get explicit planning, impact analysis, validation, and review readiness.
-- **Coordinate parallel work safely:** `/swarm` creates scoped agent briefs and a runnable swarm plan with explicit write ownership to reduce conflicts.
-- **Preserve session context automatically:** `cclog` records Claude Code tool activity to `.claude/log/` through hooks, with no prompt-token cost.
-- **Reduce response noise:** `/terse-mode` keeps technical substance while cutting filler when you want tighter answers.
+A collection of [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skills and hooks for disciplined development — **caveman** for brevity, **swarm** for parallel delegation plans, **wise** for architect-mode quality gates, **wise-cont** for persistent architect mode, and **cclog** for automatic session logging.
 
 ## Components
 
 | Name | Type | Description |
 |------|------|-------------|
-| **terse-mode** | Skill (`/terse-mode`) | Brevity mode: fewer words, same technical substance, with lite/full/ultra intensity levels |
-| **swarm** | Skill (`/swarm`) | Low-token subagent orchestration: creates scoped agent briefs plus runnable swarm files |
-| **wise** | Skill (`/wise`) | Architect mode for a single task: investigation, design, or implementation with planning, verification, and adversarial review |
-| **wise-cont** | Skill (`/wise-cont`) | Continuous architect mode: activate once and keep wise standards active for the rest of the session |
-| **cclog** | Hook | Auto-records all Claude Code sessions to `.claude/log/` with zero token consumption |
+| **caveman** | Skill (`/caveman`) | Brevity mode — fewer words, same technical substance, with lite/full/ultra intensity levels |
+| **swarm** | Skill (`/swarm`) | Low-token subagent orchestration — creates scoped agent briefs plus runnable swarm files |
+| **wise** | Skill (`/wise`) | Architect mode — systematic planning, TDD, adversarial self-review, and quality gates (single task) |
+| **wise-cont** | Skill (`/wise-cont`) | Continuous architect mode — activate once, applies to all subsequent messages in the session |
+| **cclog** | Hook | Auto-records all Claude Code sessions to `.claude/log/` — zero token consumption |
+| **sync_to_obsidian** | Hook | Syncs session transcripts to Obsidian vault as Markdown notes |
 
 ## Quick install
 
@@ -37,32 +26,32 @@ This installs skills into `.claude/skills/`, the cclog hook into `.claude/hooks/
 ### Manual install
 
 ```bash
-# terse-mode
-mkdir -p .claude/skills/terse-mode
-cd .claude/skills/terse-mode
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/terse-mode/SKILL.md
+# caveman
+mkdir -p .claude/skills/caveman
+cd .claude/skills/caveman
+curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/caveman/SKILL.md
 
 # swarm
 mkdir -p .claude/skills/swarm
 cd .claude/skills/swarm
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/swarm/SKILL.md
+curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/swarm/SKILL.md
 
 # wise
 mkdir -p .claude/skills/wise
 cd .claude/skills/wise
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/wise/SKILL.md
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/wise/CHECKLISTS.md
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/wise/PATTERNS.md
+curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/wise/SKILL.md
+curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/wise/CHECKLISTS.md
+curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/wise/PATTERNS.md
 
 # wise-cont
 mkdir -p .claude/skills/wise-cont
 cd .claude/skills/wise-cont
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/skills/wise-cont/SKILL.md
+curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/skills/wise-cont/SKILL.md
 
 # cclog (hook)
 mkdir -p .claude/hooks
 cd .claude/hooks
-curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/hooks/cclog-hook.sh
+curl -fsSLO https://raw.githubusercontent.com/den-emon/wise-mode/main/.claude/hooks/cclog-hook.sh
 chmod +x cclog-hook.sh
 ```
 
@@ -98,31 +87,31 @@ For cclog, add the following to `.claude/settings.local.json`:
 }
 ```
 
-## terse-mode - Brevity Mode
+## caveman — Brevity Mode
 
-When you type `/terse-mode`, the agent switches into a brevity-first response style:
+When you type `/caveman`, the agent switches into a brevity-first response style:
 
-- Same technical substance: removes filler, keeps exact terms, commands, and errors
-- 3 intensity levels: `lite`, `full`, and `ultra`
-- Auto-clarity: temporarily returns to normal wording for destructive actions and safety warnings
-- Language-preserving: stays in the user's language unless asked to translate
+- **Same technical substance** — removes filler, keeps exact terms, commands, and errors
+- **3 intensity levels** — `lite`, `full`, and `ultra`
+- **Auto-clarity** — temporarily returns to normal wording for destructive actions and safety warnings
+- **Language-preserving** — stays in the user's language unless asked to translate
 
 ```text
-/terse-mode
-/terse-mode lite
-/terse-mode ultra
+/caveman
+/caveman lite
+/caveman ultra
 ```
 
 Use it when you want faster, tighter answers without losing the actual fix or reasoning.
 
-## swarm - Parallel Delegation Mode
+## swarm — Parallel Delegation Mode
 
 When you type `/swarm`, the agent builds a compact parallel-work plan for tasks you explicitly want delegated:
 
-- Low-token discovery: reads only the files needed to set agent boundaries
-- Conflict-safe ownership: each agent gets an explicit write scope
-- Runnable output: generates human-readable `.swarm/plan.md` and executable `.swarm/run.sh`
-- Smallest useful swarm: avoids over-fragmenting simple work
+- **Low-token discovery** — reads only the files needed to set agent boundaries
+- **Conflict-safe ownership** — each agent gets an explicit write scope
+- **Runnable output** — generates human-readable `.swarm/plan.md` and executable `.swarm/run.sh`
+- **Smallest useful swarm** — avoids over-fragmenting simple work
 
 ```text
 /swarm build agents for this feature
@@ -131,111 +120,87 @@ When you type `/swarm`, the agent builds a compact parallel-work plan for tasks 
 
 Use it when you want subagents or parallel execution, not for ordinary single-agent coding.
 
-## wise - Architect Mode
+## wise — Architect Mode
 
-When you type `/wise` in Claude Code, the agent shifts into architect mode for a **single task**.
+When you type `/wise` in Claude Code, the agent shifts into architect mode for a **single task**:
 
-`skills/wise/SKILL.md` is the canonical source of truth for delivery modes, lightweight criteria, and tracking policy. This README and `/wise-cont` mirror it.
+- **Think first, code second** — 70% understanding, 30% coding
+- **8-phase workflow** — from planning through PR readiness
+- **TDD enforcement** — RED / GREEN / REFACTOR cycle
+- **Adversarial self-review** — "What if this runs twice concurrently?"
+- **Lightweight mode** — auto-scales down for simple, low-risk changes
 
-### Delivery modes
-
-- `quick-answer`: handle lightweight repo navigation, symbol lookup, or short factual clarification with minimal verified reads
-- `analysis-only`: investigate, gather evidence, and explain likely root cause without editing code
-- `design-only`: compare options and produce a validation, migration, or rollout plan without editing code
-- `apply` (default): implement and verify the change
-
-### What wise optimizes for
-
-- Think first, code second
-- Reuse repository patterns instead of inventing local conventions
-- Keep apply mode execution-friendly: read, edit, bash, and todo tools are pre-approved for the normal implementation flow
-- Challenge the result adversarially before calling it done
-- Auto-scale down for genuinely small, low-risk changes
-
-```text
+```
 /wise implement user authentication with JWT
-/wise investigate why job retries create duplicates
-/wise design a safe rollout plan for this schema change
 ```
 
-### Process selection
-
-| Path | When used | Phases |
-|------|-----------|--------|
-| Quick-answer | Symbol lookup, repo navigation, short factual clarification | Minimal targeted verification, then direct answer |
-| Analysis-only | Investigation, debugging discussion, root-cause analysis | 1 -> 2 -> 7 |
-| Design-only | Design comparison, migration planning, rollout strategy | 1 -> 2 -> 3 (plan only) -> 7, plus 6 if docs/tracking should change |
-| Apply (Lightweight) | Single file, small change, low risk | 1 (abbreviated) -> 4 -> 5 -> 7, plus 6 if docs/tracking changed |
-| Apply (Full) | Multi-file or medium/high-risk implementation work | 1 -> 8, with phase 6 only when relevant |
-| Apply (Full/Complex) | Schema, migration, auth, concurrency, or rollout-heavy work | 1 -> 8, plus issue/tracking updates only if the repo already uses them |
-
-### Phase summary
-
 | Phase | What happens |
-|-------|--------------|
-| 1. **Understanding & Planning** | Reads project docs, assesses complexity, chooses delivery mode, creates a plan |
+|-------|-------------|
+| 1. **Understanding & Planning** | Reads project docs, assesses complexity, creates a plan |
 | 2. **Codebase Exploration** | Maps existing patterns, verifies APIs exist, identifies impact zone |
-| 3. **TDD / Validation Plan** | RED -> GREEN -> REFACTOR, or the equivalent validation plan for design work |
-| 4. **Implementation** | Builds following existing patterns: constants, logging, validation, error handling |
-| 5. **Test Verification** | Runs the appropriate test scope and fixes regressions |
-| 6. **Documentation & Tracking** | Updates docs, examples, rollout notes, and tracking when relevant |
-| 7. **Adversarial Review** | Hostile self-review against edge cases, retries, races, and hidden assumptions |
-| 8. **Review Readiness** | Reviews the diff and leaves a clean handoff for humans or review bots |
+| 3. **TDD** | Writes failing tests first, then minimal implementation, then refactors |
+| 4. **Implementation** | Builds following existing patterns — constants, logging, error handling |
+| 5. **Test Verification** | Runs the appropriate test suite, fixes regressions |
+| 6. **Documentation** | Updates docs and GitHub issues |
+| 7. **Pre-Commit Review** | Adversarial self-review checklist |
+| 8. **PR Readiness** | Self-reviews the diff, opens a clean PR |
+
+Simple changes (single file, < 50 lines, no interface changes) automatically skip the full ceremony — only phases 1, 4, and 7 run.
 
 ### Skill files
 
 | File | Purpose |
 |------|---------|
-| `SKILL.md` | Core skill definition: modes, phases, principles, and workflow |
-| `CHECKLISTS.md` | Quick-reference checklists for planning, migration, security, and review |
-| `PATTERNS.md` | Concrete patterns for concurrency, rollouts, migrations, testing, and implementation |
+| `SKILL.md` | Core skill definition — phases, principles, and workflow |
+| `CHECKLISTS.md` | Quick-reference checklists for each phase |
+| `PATTERNS.md` | Concrete code examples for concurrency, testing, and implementation patterns |
 
-## wise-cont - Continuous Architect Mode
+## wise-cont — Continuous Architect Mode
 
-Activate once, and **every subsequent message** in the session is handled with wise standards. There is no need to type `/wise` each time.
+Activate once, and **every subsequent message** in the session is handled with architect-mode standards — no need to type `/wise` each time.
 
-```text
+```
 /wise-cont
 ```
 
-`/wise-cont` is a thin wrapper around `/wise`.
-On each new user message it re-runs `/wise` mode selection, including:
+The agent automatically assesses each request and applies the appropriate level:
 
-- `quick-answer` for lightweight repo navigation and factual lookups
-- `analysis-only` and `design-only` for advisory work
-- `apply` for implementation work, with lightweight vs full chosen by `/wise`
-
-To reduce noise, mode badges are surfaced on activation, when the mode changes, or when apply work begins.
+| Request type | Mode applied |
+|-------------|--------------|
+| Question / discussion (no code changes) | Q&A — architect thinking principles only |
+| Single file, < 50 lines, low risk | Lightweight — phases 1, 4, 7 |
+| Multi-file, clear scope | Full — phases 1–8 |
+| Complex (4+ files, schema changes, etc.) | Full + GitHub issue required |
 
 Deactivate with `/wise-cont-off` or "back to normal mode".
 
-## cclog - Session Logger (Hook)
+## cclog — Session Logger (Hook)
 
-Automatically records Claude Code tool usage to `.claude/log/` as Markdown files. Runs as a hook, so it consumes **zero session tokens**.
+Automatically records all Claude Code tool usage to `.claude/log/` as Markdown files. Runs as a hook — **zero session token consumption**.
 
 ### How it works
 
-- `PostToolUse` hook: logs every tool call with timestamps, input parameters, and execution results
-- `Stop` hook: adds turn separators between Claude responses
-- Session detection: groups entries by `session_id`, one file per session
+- **PostToolUse hook** — logs every tool call with timestamps, input parameters, and execution results
+- **Stop hook** — adds turn separators between Claude responses
+- **Session detection** — groups entries by `session_id`, one file per session
 
 ### What gets recorded
 
 | Tool | Recorded content |
-|------|------------------|
-| **Bash** | Command, description, execution result |
-| **Edit** | File path and diff |
+|------|-----------------|
+| **Bash** | Command, description, execution result (in `<details>` collapse) |
+| **Edit** | File path, diff (`- old` / `+ new`) |
 | **Grep** | Pattern, path, glob filter, match results |
 | **Glob** | Pattern, path, matched files |
 | **Read** | File path |
 | **Write** | File path |
 | **Agent** | Type, description, prompt |
-| **Skill** | Skill name and arguments |
+| **Skill** | Skill name, arguments |
 | **Others** | Tool name, input JSON, result |
 
 ### Log format
 
-Logs are saved as `.claude/log/YYYY-MM-DD_HHMMSS.md`.
+Logs are saved as `.claude/log/YYYY-MM-DD_HHMMSS.md`:
 
 ````markdown
 # Claude Code Session Log
@@ -245,7 +210,7 @@ Logs are saved as `.claude/log/YYYY-MM-DD_HHMMSS.md`.
 
 ---
 
-### [14:30] `Bash` - Run unit tests
+### [14:30] `Bash` — Run unit tests
 ```bash
 npm test
 ```
@@ -253,18 +218,18 @@ npm test
 
 ```
 PASS src/app.test.ts
-  - renders correctly (12ms)
+  ✓ renders correctly (12ms)
 Tests: 1 passed
 ```
 </details>
 
-### [14:31] `Edit` - `src/app.ts`
+### [14:31] `Edit` — `src/app.ts`
 ```diff
 - const x = 1
 + const x = 2
 ```
 
-### [14:32] `Grep` - `handleError` in `src/` (`*.ts`)
+### [14:32] `Grep` — `handleError` in `src/` (`*.ts`)
 ```
 src/app.ts:42:  handleError(err)
 src/utils.ts:10:export function handleError(e: Error) {
@@ -273,6 +238,17 @@ src/utils.ts:10:export function handleError(e: Error) {
 ---
 > Turn ended at 14:32:45
 ````
+
+## sync_to_obsidian — Obsidian Vault Sync (Hook)
+
+Converts Claude Code session transcripts (JSONL) into Markdown and saves them to your Obsidian vault.
+
+> **You must update `VAULT_DIR`** — the default path is `/Documents/ObsidianVault/syc-ob-data`. Change `VAULT_DIR` in `.claude/hooks/sync_to_obsidian.py` to point to your own Obsidian vault.
+
+```python
+# .claude/hooks/sync_to_obsidian.py — line 6
+VAULT_DIR = Path("/your/obsidian/vault/path")
+```
 
 ### Managing logs
 
@@ -300,11 +276,9 @@ rm -rf .claude/log/*
 
 ```bash
 # All components
-rm -rf .claude/skills/terse-mode .claude/skills/swarm .claude/skills/wise .claude/skills/wise-cont .claude/hooks/cclog-hook.sh
+rm -rf .claude/skills/wise .claude/skills/wise-cont .claude/hooks/cclog-hook.sh
 
 # Individual
-rm -rf .claude/skills/terse-mode
-rm -rf .claude/skills/swarm
 rm -rf .claude/skills/wise
 rm -rf .claude/skills/wise-cont
 rm .claude/hooks/cclog-hook.sh

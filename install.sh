@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh - Installer for wise-mode Claude Code skills and hooks
+# install.sh — Installer for wise-mode Claude Code skills and hooks
 # Usage:
 #   curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/install.sh | bash
 #   wget -qO- https://raw.githubusercontent.com/den-emon/wise-mode/main/install.sh | bash
@@ -10,12 +10,12 @@
 main() {
     set -euo pipefail
 
-    # Configuration
+    # ── Configuration ──────────────────────────────────────────────
     REPO_RAW_BASE="https://raw.githubusercontent.com/den-emon/wise-mode/main"
 
     # Skills to install: "name|file1,file2,..."
     SKILLS=(
-        "terse-mode|SKILL.md"
+        "caveman|SKILL.md"
         "swarm|SKILL.md"
         "wise|SKILL.md,CHECKLISTS.md,PATTERNS.md"
         "wise-cont|SKILL.md"
@@ -24,6 +24,7 @@ main() {
     # Hook files to install
     HOOK_FILES=(
         "cclog-hook.sh"
+        "sync_to_obsidian.py"
     )
 
     # Hooks configuration to merge into settings.local.json
@@ -53,7 +54,7 @@ main() {
         ]
     }'
 
-    # Colors (disabled when piped)
+    # ── Colors (disabled when piped) ──────────────────────────────
     if [ -t 1 ]; then
         RED='\033[0;31m'
         GREEN='\033[0;32m'
@@ -70,7 +71,7 @@ main() {
     warn()  { printf "${YELLOW}[warn]${RESET}  %s\n" "$1"; }
     error() { printf "${RED}[error]${RESET} %s\n" "$1" >&2; }
 
-    # Preflight checks
+    # ── Preflight checks ─────────────────────────────────────────
     if command -v curl >/dev/null 2>&1; then
         fetch() { curl -fsSL --retry 3 --retry-delay 2 "$1"; }
     elif command -v wget >/dev/null 2>&1; then
@@ -85,7 +86,7 @@ main() {
         exit 1
     fi
 
-    # Detect project root
+    # ── Detect project root ───────────────────────────────────────
     if [ -d ".git" ] || [ -d ".claude" ]; then
         PROJECT_ROOT="$(pwd)"
     else
@@ -98,7 +99,7 @@ main() {
         esac
     fi
 
-    # Check for existing installation
+    # ── Check for existing installation ───────────────────────────
     EXISTING=0
     for skill_entry in "${SKILLS[@]}"; do
         skill_name="${skill_entry%%|*}"
@@ -125,7 +126,7 @@ main() {
         esac
     fi
 
-    # Download to temp dir first (atomic install)
+    # ── Download to temp dir first (atomic install) ───────────────
     TMPDIR_DOWNLOAD="$(mktemp -d)"
     trap 'rm -rf "${TMPDIR_DOWNLOAD}"' EXIT
 
@@ -142,7 +143,7 @@ main() {
         mkdir -p "${TMPDIR_DOWNLOAD}/skills/${skill_name}"
 
         for file in "${skill_files[@]}"; do
-            url="${REPO_RAW_BASE}/skills/${skill_name}/${file}"
+            url="${REPO_RAW_BASE}/.claude/skills/${skill_name}/${file}"
             dest="${TMPDIR_DOWNLOAD}/skills/${skill_name}/${file}"
             if fetch "${url}" > "${dest}" 2>/dev/null; then
                 if [ ! -s "${dest}" ]; then
@@ -168,7 +169,7 @@ main() {
     info "Downloading hook files..."
     mkdir -p "${TMPDIR_DOWNLOAD}/hooks"
     for hook_file in "${HOOK_FILES[@]}"; do
-        url="${REPO_RAW_BASE}/hooks/${hook_file}"
+        url="${REPO_RAW_BASE}/.claude/hooks/${hook_file}"
         dest="${TMPDIR_DOWNLOAD}/hooks/${hook_file}"
         if fetch "${url}" > "${dest}" 2>/dev/null; then
             if [ ! -s "${dest}" ]; then
@@ -186,7 +187,7 @@ main() {
         exit 1
     fi
 
-    # Install skills
+    # ── Install skills ────────────────────────────────────────────
     for skill_entry in "${SKILLS[@]}"; do
         skill_name="${skill_entry%%|*}"
         skill_files_str="${skill_entry#*|}"
@@ -201,7 +202,7 @@ main() {
         done
     done
 
-    # Install hooks
+    # ── Install hooks ─────────────────────────────────────────────
     hooks_dir="${PROJECT_ROOT}/.claude/hooks"
     mkdir -p "${hooks_dir}"
     for hook_file in "${HOOK_FILES[@]}"; do
@@ -210,7 +211,7 @@ main() {
         INSTALLED_FILES+=("${hooks_dir}/${hook_file}")
     done
 
-    # Merge hooks config into settings.local.json
+    # ── Merge hooks config into settings.local.json ───────────────
     SETTINGS_PATH="${PROJECT_ROOT}/.claude/settings.local.json"
     python3 -c "
 import json, os, sys
@@ -250,14 +251,14 @@ with open(settings_path, 'w') as f:
 
     ok "Hooks configuration merged into .claude/settings.local.json"
 
-    # Remove legacy cclog skill if present
+    # ── Remove legacy cclog skill if present ──────────────────────
     LEGACY_CCLOG="${PROJECT_ROOT}/.claude/skills/cclog"
     if [ -d "${LEGACY_CCLOG}" ]; then
         rm -rf "${LEGACY_CCLOG}"
         info "Removed legacy cclog skill (replaced by hook)"
     fi
 
-    # Summary
+    # ── Summary ───────────────────────────────────────────────────
     echo ""
     printf "${BOLD}${GREEN}  wise-mode installed successfully!${RESET}\n"
     echo ""
@@ -267,14 +268,14 @@ with open(settings_path, 'w') as f:
     done
     echo ""
     info "Usage:"
-    echo "    /wise      - Architect mode for a single task"
-    echo "    /wise-cont - Architect mode for the entire session"
-    echo "    cclog      - Auto-records sessions via hooks (no commands needed)"
+    echo "    /wise      — Architect mode for a single task"
+    echo "    /wise-cont — Architect mode for the entire session"
+    echo "    cclog      — Auto-records sessions via hooks (no commands needed)"
     echo ""
     info "Session logs are saved to .claude/log/ automatically."
     echo ""
 
-    # Hint: .gitignore
+    # ── Hint: .gitignore ──────────────────────────────────────────
     if [ -f ".gitignore" ]; then
         if ! grep -q "\.claude/" ".gitignore" 2>/dev/null; then
             warn "Consider adding .claude/ to .gitignore if you don't want to track skill files."
