@@ -3,3 +3,7 @@
 
 # Track .gitignore itself
 !.gitignore
+
+# Python bytecode
+__pycache__/
+*.py[cod]

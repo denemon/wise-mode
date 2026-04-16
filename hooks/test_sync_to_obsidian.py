@@ -3,13 +3,22 @@
 
 対象: _strip_system_content, _is_real_user_input, _format_tool_call
 """
+import json
 import sys
+import tempfile
 import unittest
+from datetime import datetime
 from pathlib import Path
+from unittest import mock
 
 # テスト対象モジュールをインポート
 sys.path.insert(0, str(Path(__file__).parent))
+import sync_to_obsidian as mod
 from sync_to_obsidian import _strip_system_content, _is_real_user_input, _format_tool_call
+
+
+FIXED_NOW = datetime(2026, 4, 17, 12, 34, 56)
+FIXED_LATER = datetime(2026, 4, 17, 12, 35, 40)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -388,31 +397,160 @@ class TestFormatToolCall(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════
-# main — VAULT_DIR 早期リターン
+# Local logging / main / Obsidian sync
 # ══════════════════════════════════════════════════════════════
-class TestMainEarlyReturn(unittest.TestCase):
-    """VAULT_DIR が空 or 存在しないパスなら何もせず終了"""
+class TestLocalLogging(unittest.TestCase):
+    def _payload(self, cwd: str) -> dict:
+        return {
+            "session_id": "session-1234567890",
+            "cwd": cwd,
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "pytest",
+                "description": "Run test suite",
+            },
+            "tool_result": "PASS",
+        }
 
-    def test_empty_vault_dir_returns_immediately(self):
-        """VAULT_DIR 空 → stdin を読まず即リターン"""
-        import sync_to_obsidian as mod
-        original = mod.VAULT_DIR
-        try:
-            mod.VAULT_DIR = ""
-            # stdin が空でもエラーにならない = stdin.read() に到達していない
-            mod.main()
-        finally:
-            mod.VAULT_DIR = original
+    def test_post_tool_use_creates_local_log(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = mod.write_local_log(
+                self._payload(tmpdir), "PostToolUse", now=FIXED_NOW
+            )
 
-    def test_nonexistent_vault_dir_returns_immediately(self):
-        """VAULT_DIR が存在しないパス → stdin を読まず即リターン"""
-        import sync_to_obsidian as mod
-        original = mod.VAULT_DIR
-        try:
-            mod.VAULT_DIR = "/nonexistent/path/that/does/not/exist"
-            mod.main()
-        finally:
-            mod.VAULT_DIR = original
+            self.assertIsNotNone(log_file)
+            self.assertTrue(log_file.exists())
+            content = log_file.read_text(encoding="utf-8")
+            self.assertIn("# Claude Code Session Log", content)
+            self.assertIn("**Project:** " + Path(tmpdir).name, content)
+            self.assertIn("**Session:** session-1234567890", content)
+            self.assertIn("### [12:34] `Bash` — Run test suite", content)
+            self.assertIn("```bash\npytest\n```", content)
+            self.assertIn("PASS", content)
+
+            session_map = Path(tmpdir) / ".claude" / "log" / ".sessions"
+            self.assertTrue(session_map.exists())
+            self.assertIn("session-1234567890", session_map.read_text(encoding="utf-8"))
+
+    def test_stop_reuses_same_file_even_if_session_map_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = self._payload(tmpdir)
+            first_log = mod.write_local_log(payload, "PostToolUse", now=FIXED_NOW)
+            self.assertIsNotNone(first_log)
+
+            session_map = Path(tmpdir) / ".claude" / "log" / ".sessions"
+            session_map.unlink()
+
+            stop_payload = {"session_id": payload["session_id"], "cwd": tmpdir}
+            stop_log = mod.write_local_log(stop_payload, "Stop", now=FIXED_LATER)
+
+            self.assertEqual(first_log, stop_log)
+            content = first_log.read_text(encoding="utf-8")
+            self.assertIn("> Turn ended at 12:35:40", content)
+
+    def test_missing_session_id_skips_local_log(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = mod.write_local_log({"cwd": tmpdir}, "PostToolUse", now=FIXED_NOW)
+            self.assertIsNone(result)
+            self.assertFalse((Path(tmpdir) / ".claude" / "log").exists())
+
+
+class TestSyncToObsidian(unittest.TestCase):
+    def test_sync_session_to_obsidian_writes_note(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            project_dir = root / "project"
+            project_dir.mkdir()
+            vault_dir = root / "vault"
+            vault_dir.mkdir()
+            transcript_path = root / "transcript.jsonl"
+            transcript_path.write_text(
+                "\n".join(
+                    [
+                        json.dumps(
+                            {
+                                "type": "user",
+                                "message": {"content": "調べて"},
+                            },
+                            ensure_ascii=False,
+                        ),
+                        json.dumps(
+                            {
+                                "type": "assistant",
+                                "message": {
+                                    "content": [
+                                        {"type": "text", "text": "了解です"},
+                                        {
+                                            "type": "tool_use",
+                                            "name": "Bash",
+                                            "input": {"command": "ls"},
+                                        },
+                                        {
+                                            "type": "tool_result",
+                                            "content": "hooks\nREADME.md",
+                                        },
+                                    ]
+                                },
+                            },
+                            ensure_ascii=False,
+                        ),
+                    ]
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+
+            payload = {"session_id": "session-1234567890", "cwd": str(project_dir)}
+            with mock.patch.object(mod, "VAULT_DIR", str(vault_dir)):
+                with mock.patch.object(
+                    mod, "get_transcript_path", return_value=transcript_path
+                ):
+                    note_path = mod.sync_session_to_obsidian(payload, now=FIXED_NOW)
+
+            self.assertEqual(note_path, vault_dir / "2026-04-17 project.md")
+            self.assertTrue(note_path.exists())
+            content = note_path.read_text(encoding="utf-8")
+            self.assertIn("project: project", content)
+            self.assertIn("session: session-", content)
+            self.assertIn("### 👤 User\n調べて", content)
+            self.assertIn("### 🤖 Claude", content)
+            self.assertIn("🔧 `$ ls`", content)
+            self.assertIn("```result\nhooks\nREADME.md\n```", content)
+
+    def test_sync_session_to_obsidian_returns_none_when_vault_disabled(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = {"session_id": "session-1234567890", "cwd": tmpdir}
+            with mock.patch.object(mod, "VAULT_DIR", ""):
+                note_path = mod.sync_session_to_obsidian(payload, now=FIXED_NOW)
+            self.assertIsNone(note_path)
+
+
+class TestMain(unittest.TestCase):
+    def test_main_writes_local_log_when_called_with_event_arg(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            payload = {
+                "session_id": "session-1234567890",
+                "cwd": tmpdir,
+                "tool_name": "Read",
+                "tool_input": {"file_path": "README.md"},
+                "tool_result": "",
+            }
+            with mock.patch.object(mod, "_now", return_value=FIXED_NOW):
+                mod.main(
+                    ["sync_to_obsidian.py", "PostToolUse"],
+                    json.dumps(payload, ensure_ascii=False),
+                )
+
+            log_file = Path(tmpdir) / ".claude" / "log" / "2026-04-17_123456.md"
+            self.assertTrue(log_file.exists())
+            content = log_file.read_text(encoding="utf-8")
+            self.assertIn("### [12:34] `Read` — `README.md`", content)
+
+    def test_main_ignores_empty_stdin(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with mock.patch.object(mod, "_now", return_value=FIXED_NOW):
+                mod.main(["sync_to_obsidian.py", "PostToolUse"], "")
+            self.assertFalse((Path(tmpdir) / ".claude" / "log").exists())
 
 
 if __name__ == "__main__":

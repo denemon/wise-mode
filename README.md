@@ -11,8 +11,8 @@ A collection of [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sk
 | **wise** | Skill (`/wise`) | Architect mode — systematic planning, TDD, adversarial self-review, and quality gates (single task) |
 | **wise-cont** | Skill (`/wise-cont`) | Continuous architect mode — activate once, applies to all subsequent messages in the session |
 | **dev-with-review** | Skill (`/dev-with-review`) | Implement + continuous self-review + independent AI review via separate Claude instance |
-| **cclog** | Hook | Auto-records all Claude Code sessions to `.claude/log/` — zero token consumption |
-| **sync_to_obsidian** | Hook | Syncs session transcripts to Obsidian vault as Markdown notes |
+| **cclog** | Hook | Auto-records all Claude Code sessions to `.claude/log/` — implemented by `sync_to_obsidian.py` |
+| **sync_to_obsidian** | Hook | Optionally syncs session transcripts to Obsidian vault as Markdown notes |
 
 ## Quick install
 
@@ -22,7 +22,7 @@ Run this in your **project root** (where `.git/` lives):
 curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/install.sh | bash
 ```
 
-This installs skills into `.claude/skills/`, the cclog hook into `.claude/hooks/`, and merges hook configuration into `.claude/settings.local.json`.
+This installs skills into `.claude/skills/`, the unified hook into `.claude/hooks/sync_to_obsidian.py`, and merges hook configuration into `.claude/settings.local.json`.
 
 ### Manual install
 
@@ -63,11 +63,8 @@ chmod +x .claude/skills/dev-with-review/scripts/ai_review.sh
 
 # hooks
 mkdir -p .claude/hooks
-curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/hooks/cclog-hook.sh \
-  -o .claude/hooks/cclog-hook.sh
 curl -fsSL https://raw.githubusercontent.com/den-emon/wise-mode/main/hooks/sync_to_obsidian.py \
   -o .claude/hooks/sync_to_obsidian.py
-chmod +x .claude/hooks/cclog-hook.sh
 
 ```
 
@@ -84,12 +81,8 @@ For cclog, add the following to `.claude/settings.local.json`:
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/cclog-hook.sh PostToolUse",
+            "command": "python3 .claude/hooks/sync_to_obsidian.py PostToolUse",
             "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "python3 .claude/hooks/sync_to_obsidian.py"
           }
         ]
       }
@@ -99,12 +92,8 @@ For cclog, add the following to `.claude/settings.local.json`:
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/cclog-hook.sh Stop",
+            "command": "python3 .claude/hooks/sync_to_obsidian.py Stop",
             "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "python3 .claude/hooks/sync_to_obsidian.py"
           }
         ]
       }
@@ -242,7 +231,7 @@ The independent reviewer scores the diff 0–100 and returns findings by severit
 
 ## cclog — Session Logger (Hook)
 
-Automatically records all Claude Code tool usage to `.claude/log/` as Markdown files. Runs as a hook — **zero session token consumption**.
+`sync_to_obsidian.py` now owns the local session log as well. It always records Claude Code tool usage to `.claude/log/` as Markdown files, and it optionally syncs the same session to Obsidian when `VAULT_DIR` is configured.
 
 ### How it works
 
@@ -273,6 +262,7 @@ Logs are saved as `.claude/log/YYYY-MM-DD_HHMMSS.md`:
 **Date:** 2026-03-20
 **Start:** 14:30:22
 **Project:** my-project
+**Session:** abcdef1234567890
 
 ---
 
@@ -305,14 +295,14 @@ src/utils.ts:10:export function handleError(e: Error) {
 > Turn ended at 14:32:45
 ````
 
-## sync_to_obsidian — Obsidian Vault Sync (Hook)
+## sync_to_obsidian — Obsidian Vault Sync (Optional)
 
-Converts Claude Code session transcripts (JSONL) into Markdown and saves them to your Obsidian vault.
+The same hook can also convert Claude Code session transcripts (JSONL) into Markdown and save them to your Obsidian vault.
 
-> **Disabled by default.** To enable, edit `.claude/hooks/sync_to_obsidian.py` and set `VAULT_DIR` to your Obsidian vault path. If `VAULT_DIR` is empty or the path doesn't exist, the hook does nothing.
+> **Obsidian sync is disabled by default.** To enable it, edit `.claude/hooks/sync_to_obsidian.py` and set `VAULT_DIR` to your Obsidian vault path. If `VAULT_DIR` is empty or the path doesn't exist, only the local `.claude/log/` output runs.
 
 ```python
-# .claude/hooks/sync_to_obsidian.py — line 8
+# .claude/hooks/sync_to_obsidian.py
 VAULT_DIR = "/path/to/your/ObsidianVault/folder"
 ```
 
@@ -335,7 +325,7 @@ rm -rf .claude/log/*
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
-- `python3` (for cclog hook JSON parsing and installer config merge)
+- `python3` (for the unified hook and installer config merge)
 - `curl` or `wget` (for the installer)
 
 ## Uninstall
@@ -343,7 +333,9 @@ rm -rf .claude/log/*
 ```bash
 # All components
 rm -rf .claude/skills/terse-mode .claude/skills/swarm .claude/skills/wise .claude/skills/wise-cont .claude/skills/dev-with-review
-rm -f .claude/hooks/cclog-hook.sh .claude/hooks/sync_to_obsidian.py
+rm -f .claude/hooks/sync_to_obsidian.py
+# Older installs may also still have this deleted legacy file:
+rm -f .claude/hooks/cclog-hook.sh
 
 # Individual
 rm -rf .claude/skills/terse-mode
@@ -351,11 +343,12 @@ rm -rf .claude/skills/swarm
 rm -rf .claude/skills/wise
 rm -rf .claude/skills/wise-cont
 rm -rf .claude/skills/dev-with-review
-rm -f .claude/hooks/cclog-hook.sh
 rm -f .claude/hooks/sync_to_obsidian.py
+# Older installs only:
+rm -f .claude/hooks/cclog-hook.sh
 ```
 
-After removing cclog, also remove the `hooks` section from `.claude/settings.local.json`.
+After removing the hook, also remove the `hooks` section from `.claude/settings.local.json`.
 
 ## License
 

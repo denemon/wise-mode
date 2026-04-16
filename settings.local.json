@@ -18,12 +18,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/cclog-hook.sh PostToolUse",
+            "command": "python3 .claude/hooks/sync_to_obsidian.py PostToolUse",
             "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "python3 .claude/hooks/sync_to_obsidian.py"
           }
         ]
       }
@@ -33,12 +29,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": ".claude/hooks/cclog-hook.sh Stop",
+            "command": "python3 .claude/hooks/sync_to_obsidian.py Stop",
             "timeout": 5000
-          },
-          {
-            "type": "command",
-            "command": "python3 .claude/hooks/sync_to_obsidian.py"
           }
         ]
       }

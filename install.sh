@@ -24,7 +24,6 @@ main() {
 
     # Hook files to install
     HOOK_FILES=(
-        "cclog-hook.sh"
         "sync_to_obsidian.py"
     )
 
@@ -36,12 +35,8 @@ main() {
                 "hooks": [
                     {
                         "type": "command",
-                        "command": ".claude/hooks/cclog-hook.sh PostToolUse",
+                        "command": "python3 .claude/hooks/sync_to_obsidian.py PostToolUse",
                         "timeout": 5000
-                    },
-                    {
-                        "type": "command",
-                        "command": "python3 .claude/hooks/sync_to_obsidian.py"
                     }
                 ]
             }
@@ -51,12 +46,8 @@ main() {
                 "hooks": [
                     {
                         "type": "command",
-                        "command": ".claude/hooks/cclog-hook.sh Stop",
+                        "command": "python3 .claude/hooks/sync_to_obsidian.py Stop",
                         "timeout": 5000
-                    },
-                    {
-                        "type": "command",
-                        "command": "python3 .claude/hooks/sync_to_obsidian.py"
                     }
                 ]
             }
@@ -239,21 +230,50 @@ else:
     settings = {}
 
 existing_hooks = settings.get('hooks', {})
+# Legacy cleanup for older installs that still used cclog-hook.sh.
+legacy_commands = {
+    'PostToolUse': {
+        '.claude/hooks/cclog-hook.sh PostToolUse',
+        'python3 .claude/hooks/sync_to_obsidian.py',
+    },
+    'Stop': {
+        '.claude/hooks/cclog-hook.sh Stop',
+        'python3 .claude/hooks/sync_to_obsidian.py',
+    },
+}
+
+for event, entries in list(existing_hooks.items()):
+    cleaned_entries = []
+    for entry in entries:
+        hooks = [
+            hook for hook in entry.get('hooks', [])
+            if hook.get('command', '') not in legacy_commands.get(event, set())
+        ]
+        if hooks:
+            updated_entry = dict(entry)
+            updated_entry['hooks'] = hooks
+            cleaned_entries.append(updated_entry)
+    existing_hooks[event] = cleaned_entries
 
 for event, entries in hooks_config.items():
     if event not in existing_hooks:
         existing_hooks[event] = entries
     else:
-        # Check if cclog hook already exists to avoid duplicates
         existing_cmds = set()
         for entry in existing_hooks[event]:
             for h in entry.get('hooks', []):
                 existing_cmds.add(h.get('command', ''))
         for entry in entries:
-            for h in entry.get('hooks', []):
-                if h.get('command', '') not in existing_cmds:
-                    existing_hooks[event].append(entry)
-                    break
+            missing_hooks = [
+                hook for hook in entry.get('hooks', [])
+                if hook.get('command', '') not in existing_cmds
+            ]
+            if missing_hooks:
+                updated_entry = dict(entry)
+                updated_entry['hooks'] = missing_hooks
+                existing_hooks[event].append(updated_entry)
+                for hook in missing_hooks:
+                    existing_cmds.add(hook.get('command', ''))
 
 settings['hooks'] = existing_hooks
 
@@ -277,6 +297,12 @@ with open(settings_path, 'w') as f:
         info "Removed legacy cclog skill (replaced by hook)"
     fi
 
+    LEGACY_CCLOG_HOOK="${PROJECT_ROOT}/.claude/hooks/cclog-hook.sh"
+    if [ -f "${LEGACY_CCLOG_HOOK}" ]; then
+        rm -f "${LEGACY_CCLOG_HOOK}"
+        info "Removed legacy cclog shell hook from older install"
+    fi
+
     # ── Summary ───────────────────────────────────────────────────
     echo ""
     printf "${BOLD}${GREEN}  wise-mode installed successfully!${RESET}\n"
@@ -292,7 +318,7 @@ with open(settings_path, 'w') as f:
     echo "    /wise            - Architect mode for a single task"
     echo "    /wise-cont       - Architect mode for the entire session"
     echo "    /dev-with-review - Implement + continuous self-review + independent AI review"
-    echo "    cclog            - Auto-records sessions via hooks (no commands needed)"
+    echo "    cclog            - Auto-records sessions via sync_to_obsidian.py (no commands needed)"
     echo ""
     info "Session logs are saved to .claude/log/ automatically."
     echo ""
