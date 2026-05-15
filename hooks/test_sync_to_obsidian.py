@@ -4,6 +4,7 @@
 対象: _strip_system_content, _is_real_user_input, _format_tool_call
 """
 import json
+import os
 import sys
 import tempfile
 import unittest
@@ -19,6 +20,19 @@ from sync_to_obsidian import _strip_system_content, _is_real_user_input, _format
 
 FIXED_NOW = datetime(2026, 4, 17, 12, 34, 56)
 FIXED_LATER = datetime(2026, 4, 17, 12, 35, 40)
+
+
+class _EnvIsolatedTestCase(unittest.TestCase):
+    """CLAUDE_PROJECT_DIR を payload.cwd より優先で読むため、
+    テスト実行環境の env が漏れ込むと payload で指定した tmpdir 以外に
+    ログが書き込まれ得る。各テストの前に env を空に固定する。"""
+
+    def setUp(self) -> None:
+        patcher = mock.patch.dict(
+            os.environ, {"CLAUDE_PROJECT_DIR": ""}, clear=False
+        )
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
 
 # ══════════════════════════════════════════════════════════════
@@ -363,6 +377,7 @@ class TestFormatToolCall(unittest.TestCase):
         result = _format_tool_call("Skill", {"skill": "commit", "args": ""})
         # args が空なので余計なスペースだけが付く等の問題がないか
         self.assertIn("/commit", result)
+        self.assertNotIn("/commit ", result)  # 末尾に余計なスペース無し
 
     # ── フォールバック ──
 
@@ -397,9 +412,259 @@ class TestFormatToolCall(unittest.TestCase):
 
 
 # ══════════════════════════════════════════════════════════════
+# extract_text
+# ══════════════════════════════════════════════════════════════
+class TestExtractText(unittest.TestCase):
+    """役割別テキスト抽出 — user は system タグ除去、assistant は素通り"""
+
+    def test_string_user_strips_system_tags(self):
+        out = mod.extract_text(
+            "<system-reminder>x</system-reminder>本文", role="user"
+        )
+        self.assertEqual(out, "本文")
+
+    def test_string_assistant_preserves_content(self):
+        self.assertEqual(mod.extract_text("通常の応答", role="assistant"), "通常の応答")
+
+    def test_list_text_block(self):
+        out = mod.extract_text(
+            [{"type": "text", "text": "hello"}], role="assistant"
+        )
+        self.assertEqual(out, "hello")
+
+    def test_list_tool_use_formatted(self):
+        out = mod.extract_text(
+            [{"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}],
+            role="assistant",
+        )
+        self.assertIn("🔧 `$ ls`", out)
+
+    def test_list_tool_result_assistant_wraps_in_result_block(self):
+        out = mod.extract_text(
+            [{"type": "tool_result", "content": "output"}],
+            role="assistant",
+        )
+        self.assertIn("```result\noutput\n```", out)
+
+    def test_list_tool_result_user_role_skipped(self):
+        """user ターンの tool_result はノイズなので除外"""
+        out = mod.extract_text(
+            [{"type": "tool_result", "content": "stuff"}], role="user"
+        )
+        self.assertEqual(out, "")
+
+    def test_list_tool_result_with_list_content(self):
+        """tool_result の content が list の場合は text 要素を結合"""
+        out = mod.extract_text(
+            [
+                {
+                    "type": "tool_result",
+                    "content": [
+                        {"type": "text", "text": "line1"},
+                        {"type": "text", "text": "line2"},
+                    ],
+                }
+            ],
+            role="assistant",
+        )
+        self.assertIn("line1\nline2", out)
+
+    def test_list_str_elements_user_role_stripped(self):
+        out = mod.extract_text(
+            ["<system-reminder>x</system-reminder>", "本文"], role="user"
+        )
+        self.assertEqual(out, "本文")
+
+    def test_list_empty_text_block_skipped(self):
+        out = mod.extract_text(
+            [{"type": "text", "text": ""}, {"type": "text", "text": "real"}],
+            role="assistant",
+        )
+        self.assertEqual(out, "real")
+
+    def test_non_str_non_list_returns_empty(self):
+        self.assertEqual(mod.extract_text(None), "")
+        self.assertEqual(mod.extract_text(42), "")
+        self.assertEqual(mod.extract_text({"x": 1}), "")
+
+
+# ══════════════════════════════════════════════════════════════
+# _format_post_tool_use_entry
+# ══════════════════════════════════════════════════════════════
+class TestFormatPostToolUseEntry(unittest.TestCase):
+    """ローカルログ用エントリ整形 — ツール別分岐とフォールバック"""
+
+    def _call(self, tool: str, inp: dict, result=""):
+        return mod._format_post_tool_use_entry(
+            {"tool_name": tool, "tool_input": inp, "tool_result": result},
+            FIXED_NOW,
+        )
+
+    def test_bash_with_result_has_details_block(self):
+        out = self._call("Bash", {"command": "ls", "description": "list"}, "a\nb")
+        self.assertIn("### [12:34] `Bash` — list", out)
+        self.assertIn("```bash\nls\n```", out)
+        self.assertIn("<details><summary>result</summary>", out)
+        self.assertIn("a\nb", out)
+
+    def test_bash_no_command_skips_code_block(self):
+        out = self._call("Bash", {})
+        self.assertIn("### [12:34] `Bash`", out)
+        self.assertNotIn("```bash", out)
+
+    def test_edit_with_old_new_produces_diff(self):
+        out = self._call("Edit", {
+            "file_path": "/f.py",
+            "old_string": "old1\nold2",
+            "new_string": "new1\nnew2",
+        })
+        self.assertIn("### [12:34] `Edit` — `/f.py`", out)
+        self.assertIn("```diff", out)
+        self.assertIn("- old1", out)
+        self.assertIn("- old2", out)
+        self.assertIn("+ new1", out)
+        self.assertIn("+ new2", out)
+
+    def test_edit_without_old_new_skips_diff(self):
+        out = self._call("Edit", {"file_path": "/f.py"})
+        self.assertIn("`Edit`", out)
+        self.assertNotIn("```diff", out)
+
+    def test_glob_with_path_and_result(self):
+        out = self._call(
+            "Glob", {"pattern": "*.py", "path": "/src"}, "a.py\nb.py"
+        )
+        self.assertIn("`Glob` — `*.py`", out)
+        self.assertIn("in `/src`", out)
+        self.assertIn("a.py\nb.py", out)
+
+    def test_grep_with_glob_filter(self):
+        out = self._call(
+            "Grep",
+            {"pattern": "TODO", "path": "/src", "glob": "*.py"},
+            "match",
+        )
+        self.assertIn("`Grep` — `TODO`", out)
+        self.assertIn("in `/src`", out)
+        self.assertIn("(`*.py`)", out)
+
+    def test_agent_long_prompt_truncated_at_five_lines(self):
+        long_prompt = "\n".join(f"line{i}" for i in range(10))
+        out = self._call(
+            "Agent",
+            {"description": "d", "subagent_type": "Explore", "prompt": long_prompt},
+        )
+        self.assertIn("`Agent` (Explore) — d", out)
+        self.assertIn("> line0", out)
+        self.assertIn("> line4", out)
+        self.assertNotIn("line5", out)  # 5 行で切り詰め
+        self.assertIn("> ...", out)
+
+    def test_skill_with_args(self):
+        out = self._call("Skill", {"skill": "wise", "args": "implement X"})
+        self.assertIn("### [12:34] `Skill` — /wise implement X", out)
+
+    def test_skill_without_args_no_trailing_space(self):
+        out = self._call("Skill", {"skill": "wise"})
+        self.assertIn("### [12:34] `Skill` — /wise", out)
+        self.assertNotIn("/wise ", out)
+
+    def test_unknown_tool_fallback_serializes_input_and_result(self):
+        out = self._call("Custom", {"key": "val"}, "result data")
+        self.assertIn("### [12:34] `Custom`", out)
+        self.assertIn('"key": "val"', out)
+        self.assertIn("result data", out)
+
+    def test_non_dict_input_does_not_crash(self):
+        out = mod._format_post_tool_use_entry(
+            {"tool_name": "Bash", "tool_input": "not a dict"},
+            FIXED_NOW,
+        )
+        self.assertIn("`Bash`", out)
+
+    def test_long_tool_input_summary_truncated(self):
+        big = {"key": "x" * 500}
+        out = self._call("Custom", big)
+        self.assertIn("...", out)  # 200 文字で切り詰め
+
+    def test_dict_result_serialized_as_json(self):
+        out = self._call("Bash", {"command": "x"}, {"a": 1, "b": [1, 2]})
+        self.assertIn('"a": 1', out)
+
+
+# ══════════════════════════════════════════════════════════════
+# _safe_json_loads / _load_session_map
+# ══════════════════════════════════════════════════════════════
+class TestSafeJsonLoads(unittest.TestCase):
+    def test_empty(self):
+        self.assertEqual(mod._safe_json_loads(""), {})
+
+    def test_whitespace(self):
+        self.assertEqual(mod._safe_json_loads("  \n  "), {})
+
+    def test_malformed(self):
+        self.assertEqual(mod._safe_json_loads("{not json"), {})
+
+    def test_valid_dict(self):
+        self.assertEqual(mod._safe_json_loads('{"a": 1}'), {"a": 1})
+
+    def test_list_returns_empty_dict(self):
+        """JSON 配列は dict ではないので {} を返す"""
+        self.assertEqual(mod._safe_json_loads("[1, 2, 3]"), {})
+
+    def test_scalar_returns_empty_dict(self):
+        self.assertEqual(mod._safe_json_loads("42"), {})
+        self.assertEqual(mod._safe_json_loads('"str"'), {})
+
+
+class TestLoadSessionMap(unittest.TestCase):
+    def test_nonexistent_file_returns_empty(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            self.assertEqual(
+                mod._load_session_map(Path(tmpdir) / "missing"), {}
+            )
+
+    def test_valid_lines(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sessions"
+            path.write_text("s1=/log/a.md\ns2=/log/b.md\n", encoding="utf-8")
+            self.assertEqual(
+                mod._load_session_map(path),
+                {"s1": "/log/a.md", "s2": "/log/b.md"},
+            )
+
+    def test_skips_malformed_lines(self):
+        """`=` を含まない行、key/value が空の行はスキップ"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sessions"
+            path.write_text(
+                "valid=/log/a.md\n"
+                "no_equal_sign\n"
+                "=missing_key\n"
+                "missing_value=\n"
+                "\n"
+                "another=/log/b.md\n",
+                encoding="utf-8",
+            )
+            self.assertEqual(
+                mod._load_session_map(path),
+                {"valid": "/log/a.md", "another": "/log/b.md"},
+            )
+
+    def test_value_with_equals_sign_preserved(self):
+        """値に '=' が含まれても split(1) なので最初の '=' で分割"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = Path(tmpdir) / "sessions"
+            path.write_text("s1=/path/with=eq.md\n", encoding="utf-8")
+            self.assertEqual(
+                mod._load_session_map(path), {"s1": "/path/with=eq.md"}
+            )
+
+
+# ══════════════════════════════════════════════════════════════
 # Local logging / main / Obsidian sync
 # ══════════════════════════════════════════════════════════════
-class TestLocalLogging(unittest.TestCase):
+class TestLocalLogging(_EnvIsolatedTestCase):
     def _payload(self, cwd: str) -> dict:
         return {
             "session_id": "session-1234567890",
@@ -455,7 +720,65 @@ class TestLocalLogging(unittest.TestCase):
             self.assertFalse((Path(tmpdir) / ".claude" / "log").exists())
 
 
-class TestSyncToObsidian(unittest.TestCase):
+class TestJsonlToMarkdown(unittest.TestCase):
+    """jsonl → Markdown 変換 — 壊れた行はスキップして耐性を確保"""
+
+    def _write(self, lines):
+        f = tempfile.NamedTemporaryFile(
+            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
+        )
+        f.write("\n".join(lines) + "\n")
+        f.close()
+        path = Path(f.name)
+        self.addCleanup(lambda: path.unlink(missing_ok=True))
+        return path
+
+    def test_user_and_assistant_entries(self):
+        path = self._write([
+            json.dumps({"type": "user", "message": {"content": "質問"}}),
+            json.dumps({
+                "type": "assistant",
+                "message": {"content": [{"type": "text", "text": "回答"}]},
+            }),
+        ])
+        out = mod.jsonl_to_markdown(path)
+        self.assertIn("### 👤 User\n質問", out)
+        self.assertIn("### 🤖 Claude\n回答", out)
+        self.assertIn("---", out)  # エントリ間セパレータ
+
+    def test_malformed_json_lines_skipped(self):
+        path = self._write([
+            "{not valid json",
+            json.dumps({"type": "user", "message": {"content": "本文"}}),
+            "another broken",
+        ])
+        out = mod.jsonl_to_markdown(path)
+        self.assertIn("本文", out)
+
+    def test_empty_lines_skipped(self):
+        path = self._write([
+            "",
+            json.dumps({"type": "user", "message": {"content": "x"}}),
+            "",
+        ])
+        self.assertIn("👤 User", mod.jsonl_to_markdown(path))
+
+    def test_tool_result_only_user_message_filtered(self):
+        """ツール結果だけの user エントリはスキップ"""
+        path = self._write([
+            json.dumps({
+                "type": "user",
+                "message": {
+                    "content": [
+                        {"type": "tool_result", "content": "tool output"}
+                    ]
+                },
+            }),
+        ])
+        self.assertEqual(mod.jsonl_to_markdown(path), "")
+
+
+class TestSyncToObsidian(_EnvIsolatedTestCase):
     def test_sync_session_to_obsidian_writes_note(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
@@ -525,7 +848,7 @@ class TestSyncToObsidian(unittest.TestCase):
             self.assertIsNone(note_path)
 
 
-class TestMain(unittest.TestCase):
+class TestMain(_EnvIsolatedTestCase):
     def test_main_writes_local_log_when_called_with_event_arg(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             payload = {
@@ -548,7 +871,9 @@ class TestMain(unittest.TestCase):
 
     def test_main_ignores_empty_stdin(self):
         with tempfile.TemporaryDirectory() as tmpdir:
-            with mock.patch.object(mod, "_now", return_value=FIXED_NOW):
+            with mock.patch.dict(
+                os.environ, {"CLAUDE_PROJECT_DIR": tmpdir}
+            ), mock.patch.object(mod, "_now", return_value=FIXED_NOW):
                 mod.main(["sync_to_obsidian.py", "PostToolUse"], "")
             self.assertFalse((Path(tmpdir) / ".claude" / "log").exists())
 
