@@ -20,6 +20,7 @@ main() {
         "wise|SKILL.md,CHECKLISTS.md,PATTERNS.md"
         "wise-cont|SKILL.md"
         "dev-with-review|SKILL.md,scripts/ai_review.sh,references/reviewer_prompt.md"
+        "attack-on-hacker|SKILL.md"
     )
 
     # Hook files to install
@@ -35,7 +36,7 @@ main() {
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "python3 .claude/hooks/sync_to_obsidian.py PostToolUse",
+                        "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/sync_to_obsidian.py\" PostToolUse",
                         "timeout": 5000
                     }
                 ]
@@ -46,7 +47,7 @@ main() {
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "python3 .claude/hooks/sync_to_obsidian.py Stop",
+                        "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/sync_to_obsidian.py\" Stop",
                         "timeout": 5000
                     }
                 ]
@@ -235,10 +236,12 @@ legacy_commands = {
     'PostToolUse': {
         '.claude/hooks/cclog-hook.sh PostToolUse',
         'python3 .claude/hooks/sync_to_obsidian.py',
+        'python3 .claude/hooks/sync_to_obsidian.py PostToolUse',
     },
     'Stop': {
         '.claude/hooks/cclog-hook.sh Stop',
         'python3 .claude/hooks/sync_to_obsidian.py',
+        'python3 .claude/hooks/sync_to_obsidian.py Stop',
     },
 }
 
@@ -313,12 +316,13 @@ with open(settings_path, 'w') as f:
     done
     echo ""
     info "Usage:"
-    echo "    /terse-mode      - Brevity mode with lite/full/ultra intensity"
-    echo "    /swarm           - Parallel delegation planning"
-    echo "    /wise            - Architect mode for a single task"
-    echo "    /wise-cont       - Architect mode for the entire session"
-    echo "    /dev-with-review - Implement + continuous self-review + independent AI review"
-    echo "    cclog            - Auto-records sessions via sync_to_obsidian.py (no commands needed)"
+    echo "    /terse-mode       - Brevity mode with lite/full/ultra intensity"
+    echo "    /swarm            - Parallel delegation planning"
+    echo "    /wise             - Architect mode for a single task"
+    echo "    /wise-cont        - Architect mode for the entire session"
+    echo "    /dev-with-review  - Implement + continuous self-review + independent AI review"
+    echo "    /attack-on-hacker - Adversarial source-code security review"
+    echo "    cclog             - Auto-records sessions via sync_to_obsidian.py (no commands needed)"
     echo ""
     info "Session logs are saved to .claude/log/ automatically."
     echo ""

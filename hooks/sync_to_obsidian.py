@@ -46,6 +46,9 @@ def _safe_json_loads(raw: str) -> dict[str, Any]:
 
 
 def _project_root(payload: dict[str, Any]) -> Path:
+    env_root = os.environ.get("CLAUDE_PROJECT_DIR")
+    if env_root:
+        return Path(env_root)
     cwd = payload.get("cwd")
     if isinstance(cwd, str) and cwd:
         return Path(cwd)

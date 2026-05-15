@@ -1,16 +1,4 @@
 {
-  "permissions": {
-    "allow": [
-      "Bash(ls:*)",
-      "Bash(cat:*)",
-      "Bash(grep:*)",
-      "Bash(git:*)",
-      "Bash(gh:*)",
-      "Bash(python3:*)",
-      "Bash(which:*)",
-      "Bash(find:*)"
-    ]
-  },
   "hooks": {
     "PostToolUse": [
       {
@@ -18,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/sync_to_obsidian.py PostToolUse",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/sync_to_obsidian.py\" PostToolUse",
             "timeout": 5000
           }
         ]
@@ -29,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 .claude/hooks/sync_to_obsidian.py Stop",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/sync_to_obsidian.py\" Stop",
             "timeout": 5000
           }
         ]
